@@ -5,58 +5,60 @@ on:
     branches:
       - main
 
-jobs:
-  build-and-release:
-    permissions:
-      contents: write
-      actions: write
-      packages: write
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        target:
-          - x86_64-unknown-linux-gnu
-          # Add more targets as necessary
+permissions:
+  contents: write
+  actions: write
+  packages: write
 
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: 
+      image: almalinux:8.7
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v2
 
+      - name: Install dependencies
+        run: |
+          yum install -y openssl-devel
+          yum groupinstall -y "Development Tools"
+
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          target: ${{ matrix.target }}
-          toolchain: stable
-          override: true
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source $HOME/.cargo/env
+          rustup default stable
+          rustup target add x86_64-unknown-linux-gnu
 
       - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --target ${{ matrix.target }}
+        run: |
+          source $HOME/.cargo/env
+          cargo build --release --target x86_64-unknown-linux-gnu
 
       - name: Get version
-        id: get-version
-        run: echo "::set-output name=VERSION::$(grep '^version =' Cargo.toml | cut -d'"' -f2)"
+        id: get_version
+        run: |
+          echo ::set-output name=version::$(grep "^version" ./Cargo.toml | head -1 | awk -F= '{print $2}' | sed 's/[[:space:]]//g' | sed 's/\"//g')
 
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
         with:
-          tag_name: ${{ steps.get-version.outputs.VERSION }}
-          release_name: Release ${{ steps.get-version.outputs.VERSION }}
+          tag_name: ${{ steps.get_version.outputs.version }}
+          release_name: Release ${{ steps.get_version.outputs.version }}
           draft: false
           prerelease: false
 
       - name: Upload Release Asset
-        id: upload-release-asset 
+        id: upload-release-asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./target/${{ matrix.target }}/release/rust-clean-json
-          asset_name: rust-clean-json-${{ matrix.target }}
+          upload_url: ${{ steps.create_release.outputs.upload_url }} 
+          asset_path: ./target/x86_64-unknown-linux-gnu/release/clean-json
+          asset_name: clean-json-${{ steps.get_version.outputs.version }}-x86_64-unknown-linux-gnu
           asset_content_type: application/octet-stream
