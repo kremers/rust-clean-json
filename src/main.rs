@@ -6,11 +6,7 @@ fn clean_value(val: &Value) -> Option<Value> {
         Value::Null => None,
         Value::String(s) => {
             let trimmed = s.trim().to_owned();
-            match trimmed.to_lowercase().as_str() {
-                "true" => Some(Value::Bool(true)),
-                "false" => Some(Value::Bool(false)),
-                _ => if trimmed.is_empty() { None } else { Some(Value::String(trimmed)) },
-            }
+            if trimmed.is_empty() { None } else { Some(Value::String(trimmed)) }
         },
         Value::Array(arr) => {
             let cleaned: Vec<Value> = arr.iter()
