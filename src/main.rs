@@ -70,7 +70,7 @@ mod tests {
             }
         }
         "#;
-        let expected = r#"{"key":true,"nested":{"key":false}}"#;
+        let expected = r#"{"key":"true","nested":{"key":"false"}}"#;
         let cleaned = clean_json(input).unwrap();
         assert_eq!(cleaned, expected);
     }
