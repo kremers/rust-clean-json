@@ -1,50 +1,38 @@
-use std::io::Read;
-use serde_json::{Value, Map};
+use std::io::{self};
 
-fn clean_value(val: &Value) -> Option<Value> {
-    match val {
-        Value::Null => None,
-        Value::String(s) => {
-            let trimmed = s.trim().to_owned();
-            if trimmed.is_empty() { None } else { Some(Value::String(trimmed)) }
-        },
-        Value::Array(arr) => {
-            let cleaned: Vec<Value> = arr.iter()
-                .filter_map(clean_value)
-                .collect();
-            if cleaned.is_empty() { None } else { Some(Value::Array(cleaned)) }
-        },
-        Value::Object(map) => {
-            let cleaned: Map<String, Value> = map.iter()
-                .filter_map(|(k, v)| clean_value(v).map(|v| (k.trim().to_owned(), v)))
-                .collect();
-            if cleaned.is_empty() { None } else { Some(Value::Object(cleaned)) }
-        },
-        _ => Some(val.clone()),
-    }
+fn reverse (val: &str) -> String { return val.chars().rev().collect::<String>(); }
+
+fn clean_string(val: &str) -> String {
+    let inpt = val.to_owned();
+    return inpt.split_inclusive(':').map(|s|
+        reverse(&trimfield(&reverse(&trimfield(s.trim()))))
+    ).collect();
 }
 
-fn clean_json(json: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let value: Value = serde_json::from_str(json)?;
-    
-    // Check if the parsed JSON is an empty object
-    if value.is_object() && value.as_object().unwrap().is_empty() {
-        return Err("JSON is an empty object".into());
+fn trimfield(val: &str) -> String {
+    let mut st = String::new();
+    let mut last_c = 'x';
+    let mut trim_open : bool = false;
+    for c in val.chars() {
+        if (last_c == '"' && c == ' ')
+        || (last_c == ' ' && c == ' ' && trim_open) {
+            trim_open = true;
+        } else {
+            trim_open = false;
+            st.push(c);
+        }
+        last_c = c;
     }
-
-    let cleaned = clean_value(&value);
-    match cleaned {
-        Some(v) => Ok(serde_json::to_string(&v)?),
-        None => Err("Cleaned JSON is empty".into()),
-    }
+    return st;
 }
 
 fn main() {
     let mut buffer = String::new();
-    std::io::stdin().read_to_string(&mut buffer).unwrap();
-    match clean_json(&buffer) {
-        Ok(json) => println!("{}", json),
-        Err(e) => eprintln!("Error cleaning json: {}", e),
+    loop {
+        let bytes_read = io::stdin().read_line(&mut buffer).unwrap();
+        if bytes_read == 0 { break; };
+        print!("{}",clean_string(&buffer));
+        buffer.clear();
     }
 }
 
@@ -70,22 +58,9 @@ mod tests {
             }
         }
         "#;
-        let expected = r#"{"key":"true","nested":{"key":"false"}}"#;
-        let cleaned = clean_json(input).unwrap();
+        let expected = r#"{"key":"true","empty array":[],"empty object":{},"empty string":"","null":null,"nested":{"key":"false","empty array":[],"empty object":{},"empty string":"","null":null}}"#;
+        let cleaned = input.lines().map(|n| clean_string(&n)).collect::<String>();
         assert_eq!(cleaned, expected);
     }
-
-    #[test]
-    fn it_errors_on_invalid_json() {
-        let input = r#"{"key": "value",}"#;  // Invalid JSON
-        let result = clean_json(input);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn it_errors_on_empty_json() {
-        let input = r#"{}"#;  // Empty JSON
-        let result = clean_json(input);
-        assert!(result.is_err());
-    }
 }
+
