@@ -1,33 +1,29 @@
 use std::io::{self};
 
-fn reverse (val: &str) -> String { return val.chars().rev().collect::<String>(); }
-
 fn clean_string(val: &str) -> String {
     let inpt = val.to_owned();
     return inpt.split_inclusive(':').map(|s|
-        reverse(&trimfield(&reverse(&trimfield(s.trim()))))
+        trimfield(&s.trim())
     ).collect();
 }
 
 fn trimfield(val: &str) -> String {
-    let mut st = String::new();
-    let mut last_c = 'x';
-    let mut trim_open : bool = false;
-    for c in val.chars() {
-        if (last_c == '"' && c == ' ')
-        || (last_c == ' ' && c == ' ' && trim_open) {
-            trim_open = true;
-        } else {
-            trim_open = false;
-            st.push(c);
-        }
-        last_c = c;
+    let mut chars = val.chars();
+    let first_c = chars.next();
+    let last_c = chars.next_back();
+    if first_c == None || last_c == None { return val.to_string(); }
+    chars.next_back();
+    if last_c != None && last_c.unwrap() == ':' {
+        return format!("\"{}\":", chars.as_str().trim());
+    } else if first_c == None || first_c.unwrap() == '"' {
+        return format!("\"{}\",", chars.as_str().trim());
+    } else {
+        return val.to_string();
     }
-    return st;
 }
 
 fn main() {
-    let mut buffer = String::new();
+    let mut buffer = String::with_capacity(1000);
     loop {
         let bytes_read = io::stdin().read_line(&mut buffer).unwrap();
         if bytes_read == 0 { break; };
